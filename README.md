@@ -280,6 +280,6 @@ Notes:
 
 ###### RCRG-2R-11C-conc-V1-Attention Confusion Matrix
 
-<img src="experiments/attention_models/RCRG-R2-C11-conc-temporal_V1_2025_06_28_18_37/Group_Activity_RCRG-R2-C11-Conc-Temporal-Attention-TTA_Eval_On_Testset_TTA_confusion_matrix.png" alt="RCRG-2R-11C-conc-V1" >
+<img src="experiments/attention_models/RCRG-R2-C11-conc-temporal_V1_2025_06_28_18_37/Group_Activity_RCRG-R2-C11-Conc-Temporal-Attention_Eval_On_Testset_confusion_matrix.png" alt="RCRG-2R-11C-conc-V1" >
 
 -----
