@@ -1,0 +1,5 @@
+.kaggle
+data
+*.pkl
+__pycache__
+*.pyc
