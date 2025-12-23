@@ -1,12 +1,14 @@
 <h1 align="center">Relational-Group-Activity-Recognition</h1>
 
 <p align="center">
-  This repository provides an implementation of the <strong>ECCV 2018 paper</strong>, 
-  <a href="https://openaccess.thecvf.com/content_ECCV_2018/papers/Mostafa_Ibrahim_Hierarchical_Relational_Networks_ECCV_2018_paper.pdf">
+This repository presents an implementation of the <strong>ECCV 2018 paper</strong>,
+<a href="https://openaccess.thecvf.com/content_ECCV_2018/papers/Mostafa_Ibrahim_Hierarchical_Relational_Networks_ECCV_2018_paper.pdf">
     <em>Hierarchical Relational Networks for Group Activity Recognition</em>
-  </a>.  
-  Unlike traditional pooling methods (max, average, or attention pooling) that reduce dimensionality but discard important spatial and relational details, this paper introduces a <strong>relational layer</strong>. 
-  The relational layer enhances a person’s representation by explicitly modeling interactions with its neighbors in a structured relationship graph, leading to richer scene-level understanding.
+  </a>.The work addresses the limitations of conventional feature aggregation strategies,such as max pooling, average pooling, and attention-based pooling, which compress individual representations into a global descriptor while often discarding critical spatial and relational information.
+
+To overcome these limitations, the proposed approach introduces a relational layer that explicitly models inter-person interactions within a structured relational graph. Rather than treating individuals independently, each person’s representation is refined through learned relationships with neighboring actors, capturing both local interactions and higher-level group dynamics.
+
+By hierarchically aggregating relational information from the person level to the scene level, the model enables richer contextual reasoning and more accurate group activity recognition, particularly in complex multi-agent environments.
 </p>
 
 ---
@@ -43,69 +45,72 @@
 
 ## Key Updates
 
-- **ResNet-50 Backbone**: Replaced VGG19 with ResNet-50 for stronger feature extraction.  
-- **Ablation Studies**: Comprehensive experiments to evaluate the contribution of each model component.  
-- **Test-Time Augmentation (TTA)**: Implemented to improve robustness and reliability during inference.
-- **Graph Attention Operator**: Implementation for an attention-based relational layer.
-- **Improved Performance**: Achieves consistently higher accuracy across all baselines compared to the original paper.  
-- **Modern Implementation**: Fully implemented in **PyTorch** with support from **PyTorch Geometric**.  
+- **ResNet-50 Backbone**: Replaces the original VGG-19 backbone with a deeper ResNet-50 architecture, enabling stronger and more discriminative visual feature representations.
+- **Ablation Studies**: Includes systematic ablation experiments to quantify the contribution of individual architectural components and design choices.
+- **Test-Time Augmentation (TTA)**: Incorporates test-time data augmentation to improve inference robustness and reduce prediction variance.
+- **Graph Attention Operator**: Implements an attention-based relational layer that dynamically weighs inter-person interactions within the relational graph.
+- **Improved Performance**: Achieves consistently higher recognition accuracy across all evaluated baselines compared to the original implementation reported in the paper.
+- **Modern Implementation**: Fully implemented in **PyTorch**, with graph operations supported by **PyTorch Geometric**, facilitating extensibility and reproducibility.
 
 ---
 
 # Introduction
 
-Traditional pooling methods (max, average, or attention pooling) reduce dimensionality but often discard important **spatial** and **relational** details between people. The **Hierarchical Relational Network (HRN)** addresses this by introducing a **relational layer** that explicitly models interactions between individuals in a **structured relationship graph**.
+Conventional pooling mechanisms (max, average, or attention pooling) aggregate features in a manner that reduces dimensionality but frequently discards fine-grained spatial and relational cues critical for understanding group dynamics. In contrast, the Hierarchical Relational Network (HRN) introduces a dedicated relational layer that explicitly captures inter-person interactions within a structured relationship graph, leading to richer and more discriminative group-level representations.
 
 <p align="center">
   <img width="512" height="512" src="https://github.com/user-attachments/assets/639cb140-a4df-4cd4-befc-2e965030723c" alt="Relational Layer Illustration"/>
 </p>
 
-
 ## How the Relational Layer Works
 
-1. **Graph Construction**  
-   - Each person in a frame is represented as a node.  
-   - People are ordered based on the top-left corner `(x, y)` of their bounding boxes (first by x, then by y if tied).  
-   - Edges connect a person to their neighbors, forming **cliques** in the graph.  
+The relational layer explicitly models inter-person interactions by representing individuals as nodes in a structured graph and iteratively refining their representations through learned relational operators.
 
-2. **Initial Person Features**  
-   Each person’s initial representation comes from a CNN backbone (e.g., ResNet50):  
+### 1. Graph Construction
+- Each detected person within a frame is represented as a **node** in the graph.
+- Individuals are ordered according to the top-left corner coordinates `(x, y)` of their bounding boxes (sorted by `x`, then by `y` in case of ties) to ensure deterministic graph construction.
+- Edges connect each person to a predefined set of neighboring individuals, forming local **cliques** that capture spatially proximal interactions.
+
+### 2. Initial Person Features
+Each person’s initial feature representation is extracted using a CNN backbone (e.g., **ResNet-50**):
 
    $$P_i^0 = \text{CNN}(I_i)$$
 
-   where $I_i$ is the cropped image around person $i$.  
+   where $I_i$ denotes the cropped image region corresponding to person $i$. 
 
-3. **Relational Update**  
-  
-  <p align="center">
-  <img src="https://github.com/user-attachments/assets/d965ea0e-8599-4d0a-b20e-73c50fbfe6d0" alt="Graph Structure Illustration" width="750"/>
-  </p>
+### 3. Relational Update
 
-   At relational layer $\ell$, person $i$’s updated representation is:  
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/d965ea0e-8599-4d0a-b20e-73c50fbfe6d0" alt="Relational Graph Illustration" width="750"/>
+</p>
+
+At relational layer $\ell$, the representation of person person $i$ is updated as:
 
    $$P_i^\ell = \sum_{j \in E_i^\ell} F^\ell(P_i^{\ell-1} \oplus P_j^{\ell-1}; \theta^\ell)$$
+   
+where:
+- $E_i^\ell$: denotes the set of neighbors of person $i$ in graph $G^\ell$,
+- $\oplus$: represents feature concatenation,
+- $F^\ell$: is a shared multi-layer perceptron (MLP) parameterized by $\ell$, with input dimension $2N_{\ell-1}$ and output dimension $N_\ell$.
 
-   - $E_i^\ell$: neighbors of person $i$ in graph $G^\ell$  
-   - $\oplus$: concatenation operator  
-   - $F^\ell$: shared MLP for layer $\ell$ (input size $2N_{\ell-1}$, output size $N_\ell$)  
+This operation computes pairwise relational features between person $i$ and its neighbors, which are subsequently aggregated to form an updated representation.
 
-   * This step computes pairwise relation vectors between $i$ and its neighbors, then aggregates them.  
+### 4. Hierarchical Stacking
 
-3. **Hierarchical Stacking**  
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8d8f4ea7-803c-486d-8fb7-00638445ddb7" alt="Hierarchical Relational Layers" width="750"/>
+</p>
 
-   <p align="center">
-   <img src="https://github.com/user-attachments/assets/8d8f4ea7-803c-486d-8fb7-00638445ddb7" alt="Graph Structure Illustration" width="750"/>
-   </p>
-  
-   - Multiple relational layers are stacked, compressing person features while refining relational context.  
-   - The architecture supports a variable number of people $K$ (robust to occlusions or false detections).  
+- Multiple relational layers are stacked hierarchically, progressively compressing person-level features while enriching them with higher-order relational context.
+- The architecture naturally supports a variable number of individuals $K$, making it robust to occlusions, missed detections, and false positives.
 
-4. **Scene Representation**  
-   The final scene feature $S$ is obtained by pooling person features from the last relational layer:  
+### 5. Scene Representation
+The final scene-level representation $S$ is obtained by aggregating the person features from the last relational layer:
 
-   $$S = P_1^L \ ▽ \ P_2^L \ ▽ \dots \ ▽ \ P_K^L$$
+ $$S = P_1^L \ ▽ \ P_2^L \ ▽ \dots \ ▽ \ P_K^L$$
 
-   where $▽$ is a pooling operator (e.g., concatenation or element-wise max pooling).  
+where $▽$ denotes a pooling operator, such as concatenation or element-wise max pooling.
+
 
 -----
 ## Usage
@@ -114,31 +119,13 @@ Traditional pooling methods (max, average, or attention pooling) reduce dimensio
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/Sh-31/Relational-Group-Activity-Recognition.git
+git clone https://github.com/mostafabahaa25/Hierarchical-Relational-Networks-for-GARR
 ```
 
 ### 2. Install the Required Dependencies
 ```bash
 pip3 install -r requirements.txt
 ```
-
-### 3. Download the Model Checkpoint
-This is a manual step that involves downloading the model checkpoint files.
-
-#### Option 1: Use Python Code
-Replace the `modeling` folder with the downloaded folder:
-```python
-import kagglehub
-
-# Download latest version
-path = kagglehub.model_download("sherif31/relational-group-activity-recognition/pyTorch/default")
-
-print("Path to model files:", path)
-```
-
-#### Option 2: Download Directly
-Browse and download the specific checkpoint from Kaggle:  
-[Relational-Group-Activity-Recognition - PyTorch Checkpoint](https://www.kaggle.com/models/sherif31/relational-group-activity-recognition/)
 
 -----
 ## Dataset Overview
@@ -212,17 +199,17 @@ For further information about dataset, you can check out the paper author's repo
 
 #### Single Frame Models:
 
-- **B1-NoRelations:** In the first stage, Resnet50 is fine-tuned and a person is represented with 2048-d features. In the second stage, each person is connected to a shared dense layer of 128 features. The person representations (each of length 128 features) are then pooled and fed to a softmax layer for group activity classification.
+- **B1-NoRelations:** In the first stage, a ResNet-50 backbone is fine-tuned, and each person is represented using a 2048-dimensional feature vector. In the second stage, individual features are projected through a shared fully connected layer of 128 dimensions. The resulting person-level representations are then pooled and passed to a softmax classifier for group activity recognition.
 
-- **RCRG-1R-1C:** Pretrained Resnet50 network is fine-tuned and a person is represented with 2048-d features, then a single relational layer (1R), all people in 1 clique (1C), so all-pairs relationships are learned.
+- **RCRG-1R-1C:** A pretrained ResNet-50 backbone is fine-tuned to extract 2048-dimensional person features, followed by a single relational layer (1R). All individuals are connected within a single clique (1C), enabling the modeling of all-pairwise relationships.
 
-- **RCRG-1R-1C-!tuned:** Same as previous variant, but Pretrained Resnet50 network without fine-tuning.
+- **RCRG-1R-1C-!tuned:** Identical to the previous variant, except that the pretrained ResNet-50 backbone is kept frozen and not fine-tuned during training.
 
-- **RCRG-2R-11C:** Close to the RCRG-1R-1C variant, but uses 2 relational layers (2R) of sizes 256 and 128. The graphs of these 2 layers are 1 clique (11C) of all people. This variant and the next ones explore stacking layers with different graph structures.
+- **RCRG-2R-11C:** Extends the RCRG-1R-1C model by stacking two relational layers (2R) with output dimensions of 256 and 128, respectively. Both layers use a single clique (1C) encompassing all individuals. This variant and the subsequent ones explore the impact of deeper relational hierarchies.
 
-- **RCRG-2R-21C:** Same as the previous model, but the first layer has 2 cliques, one per team. The second layer is all-pairs relations (1C).
+- **RCRG-2R-21C:** Similar to RCRG-2R-11C, but the first relational layer uses two cliques (2C), corresponding to one clique per team, while the second layer models all-pairwise relations using a single clique (1C).
 
-- **RCRG-3R-421C:** There relational layers (of sizes 512, 256, and 128) with clique sizes of the layers set to (4, 2, 1). The first layer has 4 cliques, with each team divided into 2 cliques.
+- **RCRG-3R-421C:** Employs three relational layers with output dimensions of 512, 256, and 128, respectively. The clique configuration follows a (4, 2, 1) hierarchy: the first layer contains four cliques (each team split into two sub-cliques), the second layer contains two cliques, and the final layer aggregates all individuals into a single clique.
 
 ##### Performance comparison
 
@@ -245,14 +232,15 @@ For further information about dataset, you can check out the paper author's repo
 | RCRG-3R-421C-conc | 89.23% | \- | 87.3% |
 
 Notes:
-- `-conc` postfix is used to indicate concatenation pooling instead of max-pooling.
-- Used 4 transform augmentation at TTA.
+- The `-conc` suffix denotes the use of concatenation pooling instead of max pooling.
+- Test-time augmentation (TTA) uses four spatial transformations.
+
   
 #### Temporal Models:
 
-- **RCRG-2R-11C-conc-temporal:** Uses 2 relational layers (2R) of sizes 256 and 128. The graphs of these 2 layers are 1 clique (11C) of all people. 
+- **RCRG-2R-11C-conc-temporal:** Uses two relational layers (2R) with output dimensions of 256 and 128, respectively. Both relational layers operate on a single clique (1C) containing all detected individuals, enabling full pairwise interaction modeling across time.
 
-- **RCRG-2R-21C:** The first layer has 2 cliques, one per team. The second layer is all-pairs relations (1C).
+- **RCRG-2R-21C:** The first relational layer partitions individuals into two cliques (2C), corresponding to one clique per team, while the second relational layer models all-pairwise interactions using a single clique (1C).
 
 ##### Performance comparison
 
@@ -271,19 +259,18 @@ Notes:
 | RCRG-2R-21C | \- | \- | 89.4% |
 
 Notes:
-- `Temporal`: postfix is used to indicate model work with a sequence of frames, not a frame.
-- `-conc` postfix is used to indicate concatenation pooling instead of max-pooling.
-- The original paper did not clearly specify where the LSTM unit should be integrated into the model.  
-  To explore this, I implemented three possible variants:  
-  - `V1`: LSTM **before** the relational layer → allows the relational layer to learn richer spatio-temporal features.  
-  - `V2`: LSTM **after** the relational layer → enhances the relational features with temporal modeling.  
-  - `V3`: LSTMs **both before and after** the relational layer → combines the strengths of V1 and V2.
-- I decided to train `RCRG-2R-11C-conc` only, since it achieved the best performance in both my implementation and the paper’s results.
-- I implemented `B1-no-relations-temporal` to evaluate the impact of the relational layer (This model was not included in the original paper).
+- The `-temporal` suffix indicates models operating on sequences of frames rather than single-frame inputs.
+- The `-conc` suffix denotes the use of concatenation pooling instead of max pooling.
+- The original paper does not explicitly specify the integration point of the LSTM module within the architecture. To address this ambiguity, three temporal variants were implemented:
+  - `V1`: LSTM **before** the relational layer, allowing the relational operator to learn richer spatio-temporal person representations.
+  - `V2`: LSTM **after** the relational layer, enabling temporal modeling over relationally enhanced features.
+  - `V3`: LSTMs **both before and after** the relational layer, combining the benefits of V1 and V2.
+- Training was focused on the `RCRG-2R-11C-conc` configuration, as it consistently achieved the strongest performance in both the original paper and the current implementation.
+- The `B1-no-relations-temporal` baseline was implemented to explicitly evaluate the impact of relational modeling in the temporal setting; this baseline was not included in the original paper.
 
 #### Attention Models (new baseline):
 
-- Uses 2 relational layers (2R). The graphs of these two layers are one clique (11C) of all players, but this time using a graph attentional operator instead of an MLP for the relational layers.
+- Uses two relational layers (2R) operating on a single clique (1C) containing all players, where the standard MLP-based relational operator is replaced with a **graph attention mechanism** to dynamically weight inter-person interactions.
 
 ###### My Scores (Accuracy)
 
